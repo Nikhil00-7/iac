@@ -44,8 +44,17 @@ pipeline {
    
         stage("Terraform Init") {
             steps {
-                retry(3) {
-                    sh "terraform init"
+                retry(3) { 
+                    sh """
+            #Clean old providers first
+            rm -rf .terraform .terraform.lock.hcl
+
+            #  Force correct Mac ARM architecture
+            export GOARCH=arm64
+            export GOOS=darwin
+            terraform init -upgrade
+            """
+
                 }
             }
         }
