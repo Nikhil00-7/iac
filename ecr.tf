@@ -1,8 +1,8 @@
 resource "aws_ecr_repository" "ecr_repository" {
-   name = "my-ecr-repository"
-    image_tag_mutability = "MUTABLE"
+  name                 = "my-ecr-repository"
+  image_tag_mutability = "MUTABLE"
 
-    image_scanning_configuration {
+  image_scanning_configuration {
     scan_on_push = true
   }
 }
