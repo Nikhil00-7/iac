@@ -28,8 +28,8 @@ resource "aws_launch_template" "asg_launch_template" {
 resource "aws_autoscaling_group" "app_asg" {
   name = "my-app-asg"
   max_size = 3
-  min_size= 1
-  desired_capacity= 2 
+  min_size= 0
+  desired_capacity= 0
    launch_template {
       id = aws_launch_template.asg_launch_template.id 
       version = "$Latest"
