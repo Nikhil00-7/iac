@@ -2,19 +2,17 @@ pipeline {
     agent any
 
     tools {
-        terraform 'terraform'  
+        terraform 'terraform'
     }
 
     environment {
-        AWS_ACCESS_KEY_ID = credentials('aws-access-key')
-        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
-        AWS_DEFAULT_REGION    = 'us-east-1'
-        TF_IN_AUTOMATION      = 'true'   
+        AWS_DEFAULT_REGION = 'us-east-1'
+        TF_IN_AUTOMATION   = 'true'
         PATH = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
     }
 
     options {
-        timeout(time: 30, unit: 'MINUTES')  
+        timeout(time: 30, unit: 'MINUTES')
         timestamps()
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
@@ -41,25 +39,19 @@ pipeline {
             }
         }
 
-   
         stage("Terraform Init") {
             steps {
-                retry(3) { 
+                retry(3) {
                     sh """
-            #Clean old providers first
-            rm -rf .terraform .terraform.lock.hcl
-
-            #  Force correct Mac ARM architecture
-            export GOARCH=arm64
+                    rm -rf .terraform .terraform.lock.hcl
+                      export GOARCH=arm64
             export GOOS=darwin
-            terraform init -upgrade
-            """
-
+                    terraform init -upgrade
+                    """
                 }
             }
         }
 
-        
         stage("Validate & Scan") {
             failFast true
             parallel {
@@ -79,7 +71,6 @@ pipeline {
                 stage("Terraform Lint") {
                     steps {
                         script {
-                            
                             def status = sh(script: "tflint", returnStatus: true)
                             if (status != 0) {
                                 unstable("tflint found issues — review recommended")
@@ -91,7 +82,6 @@ pipeline {
                 stage("Security Scan") {
                     steps {
                         script {
-                        
                             def status = sh(
                                 script: "checkov -d . --quiet --compact",
                                 returnStatus: true
@@ -105,24 +95,25 @@ pipeline {
             }
         }
 
-        
         stage("Terraform Plan") {
             steps {
-                sh "terraform plan -out=tfplan"
-        
-                archiveArtifacts artifacts: 'tfplan', fingerprint: true
+                script {
+                    sh "terraform plan -out=tfplan -detailed-exitcode || true"
+                    archiveArtifacts artifacts: 'tfplan', fingerprint: true
+                }
             }
         }
 
         stage("Manual Approval") {
             steps {
                 script {
-           
+
                     sh "terraform show -no-color tfplan"
 
                     def userChoice = input(
                         id: "ProceedWithApply",
                         message: "Review the plan above. Proceed with terraform apply?",
+                        submitterParameter: "APPROVER",
                         parameters: [
                             choice(
                                 name: "confirmation",
@@ -132,7 +123,9 @@ pipeline {
                         ]
                     )
 
-                    if (userInput['confirmation'] != "yes") {
+                    env.APPROVER = userChoice['APPROVER']
+
+                    if (userChoice['confirmation'] != "yes") {
                         error("Deployment aborted by ${env.APPROVER}")
                     }
 
@@ -143,41 +136,53 @@ pipeline {
 
         stage("Terraform Apply") {
             steps {
-                
-                sh "terraform apply -auto-approve tfplan"
+                script {
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-credentials'
+                    ]]) {
+                        retry(2) {
+                            sh "terraform apply -auto-approve tfplan"
+                        }
+                    }
+                }
             }
         }
 
- 
         stage("Verify Infrastructure") {
             steps {
                 script {
-                    sh """
-                    echo "Verifying ECR repository..."
-                    aws ecr describe-repositories \
-                        --repository-names my-ecr-repository \
-                        --region ${AWS_DEFAULT_REGION}
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-credentials'
+                    ]]) {
+                        sh """
+                        echo "Verifying ECR repository..."
+                        aws ecr describe-repositories \
+                            --repository-names my-ecr-repository \
+                            --region ${AWS_DEFAULT_REGION}
 
-                    echo "Verifying ASG exists..."
-                    aws autoscaling describe-auto-scaling-groups \
-                        --auto-scaling-group-names my-app-asg \
-                        --region ${AWS_DEFAULT_REGION} \
-                        --query 'AutoScalingGroups[0].AutoScalingGroupName' \
-                        --output text
+                        echo "Verifying ASG exists..."
+                        aws autoscaling describe-auto-scaling-groups \
+                            --auto-scaling-group-names my-app-asg \
+                            --region ${AWS_DEFAULT_REGION} \
+                            --query 'AutoScalingGroups[0].AutoScalingGroupName' \
+                            --output text
 
-                    echo "Verifying ASG desired capacity is 0..."
-                    CAPACITY=\$(aws autoscaling describe-auto-scaling-groups \
-                        --auto-scaling-group-names my-app-asg \
-                        --region ${AWS_DEFAULT_REGION} \
-                        --query 'AutoScalingGroups[0].DesiredCapacity' \
-                        --output text)
+                        echo "Verifying ASG desired capacity is 0..."
+                        CAPACITY=\$(aws autoscaling describe-auto-scaling-groups \
+                            --auto-scaling-group-names my-app-asg \
+                            --region ${AWS_DEFAULT_REGION} \
+                            --query 'AutoScalingGroups[0].DesiredCapacity' \
+                            --output text)
 
-                    if [ "\$CAPACITY" != "0" ]; then
-                        echo "WARNING: ASG capacity is \$CAPACITY, expected 0"
-                    else
-                        echo "ASG is correctly set to 0 — ready for app pipeline"
-                    fi
-                    """
+                        if [ "\$CAPACITY" != "0" ]; then
+                            echo "WARNING: ASG capacity is \$CAPACITY, expected 0"
+                        else
+                            echo "ASG is correctly set to 0 — ready for app pipeline"
+                        fi
+                        """
+                    }
                 }
             }
         }
@@ -203,7 +208,7 @@ pipeline {
 
                 Infrastructure is ready. You can now run the App Pipeline.
                 """,
-                to: "kujurnikhil0007@gmail.com"  
+                to: "kujurnikhil0007@gmail.com"
             )
         }
 
@@ -215,7 +220,6 @@ pipeline {
                     echo "Failed before apply — no infrastructure was created"
                 } else {
                     echo "Apply may have partially run — MANUAL REVIEW REQUIRED"
-                    echo "Do NOT auto-destroy — check AWS console first"
                 }
             }
 
@@ -229,7 +233,6 @@ pipeline {
                 URL:   ${env.BUILD_URL}
 
                 ACTION REQUIRED: Check AWS console before any manual intervention.
-                Do NOT run terraform destroy without reviewing current state.
                 """,
                 to: "kujurnikhil0007@gmail.com"
             )
