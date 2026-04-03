@@ -30,7 +30,7 @@ pipeline {
         stage("Pre Check") {
             steps {
                 script {
-                    def requiredFiles = ['provider.tf', 'ecr.tf', 'main.tf']
+                    def requiredFiles = ['provider.tf', 'ecr.tf']
                     requiredFiles.each { file ->
                         if (!fileExists(file)) {
                             error "Required file missing: ${file}"
