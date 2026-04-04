@@ -137,10 +137,7 @@ pipeline {
         stage("Terraform Apply") {
             steps {
                 script {
-                    withCredentials([[
-                        $class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-credentials'
-                    ]]) {
+                   withCredentials([aws(credentialsId: 'aws-credentials')]) {
                         retry(2) {
                             sh "terraform apply -auto-approve tfplan"
                         }
@@ -148,15 +145,11 @@ pipeline {
                 }
             }
         }
-
-        stage("Verify Infrastructure") {
+stage("Verify Infrastructure") {
             steps {
                 script {
-                    withCredentials([[
-                        $class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-credentials'
-                    ]]) {
-                        sh """
+                    withCredentials([aws(credentialsId: 'aws-credentials')]) {
+                        sh '''
                         echo "Verifying ECR repository..."
                         aws ecr describe-repositories \
                             --repository-names my-ecr-repository \
@@ -170,24 +163,22 @@ pipeline {
                             --output text
 
                         echo "Verifying ASG desired capacity is 0..."
-                        CAPACITY=\$(aws autoscaling describe-auto-scaling-groups \
+                        CAPACITY=$(aws autoscaling describe-auto-scaling-groups \
                             --auto-scaling-group-names my-app-asg \
                             --region ${AWS_DEFAULT_REGION} \
                             --query 'AutoScalingGroups[0].DesiredCapacity' \
                             --output text)
 
-                        if [ "\$CAPACITY" != "0" ]; then
-                            echo "WARNING: ASG capacity is \$CAPACITY, expected 0"
+                        if [ "$CAPACITY" != "0" ]; then
+                            echo "WARNING: ASG capacity is $CAPACITY, expected 0"
                         else
                             echo "ASG is correctly set to 0 — ready for app pipeline"
                         fi
-                        """
+                        '''
                     }
                 }
             }
         }
-    }
-
     post {
         always {
             echo "Cleaning workspace..."
@@ -238,4 +229,5 @@ pipeline {
             )
         }
     }
+}
 }
