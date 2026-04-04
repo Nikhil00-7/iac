@@ -1,7 +1,7 @@
 resource "aws_iam_role" "ec2_role" {
   name = "ec2_role"
   assume_role_policy = jsonencode({
-    Verison = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [
       {
         Effect = "Allow"
