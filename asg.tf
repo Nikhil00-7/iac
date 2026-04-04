@@ -34,7 +34,7 @@ resource "aws_autoscaling_group" "app_asg" {
     id      = aws_launch_template.asg_launch_template.id
     version = "$Latest"
   }
-  vpc_zone_identifier       = [aws_subnet.private_subnet[*].id]
+  vpc_zone_identifier       = aws_subnet.private_subnet[*].id
   target_group_arns         = [aws_alb_target_group.alb_target_group.arn]
   health_check_type         = "ELB"
   health_check_grace_period = 300
