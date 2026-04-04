@@ -28,7 +28,16 @@ pipeline {
         stage("Pre Check") {
             steps {
                 script {
-                    def requiredFiles = ['provider.tf', 'ecr.tf']
+                    def requiredFiles = [
+                        'provider.tf',
+                        'ecr.tf',
+                        'alb.tf',
+                        'asg.tf',
+                        'vpc.tf',
+                        'iam.tf',
+                        'security.tf',
+                        'user_data.sh'
+                    ]
                     requiredFiles.each { file ->
                         if (!fileExists(file)) {
                             error "Required file missing: ${file}"
@@ -44,8 +53,6 @@ pipeline {
                 retry(3) {
                     sh """
                     rm -rf .terraform .terraform.lock.hcl
-                      export GOARCH=arm64
-            export GOOS=darwin
                     terraform init -upgrade
                     """
                 }
@@ -98,7 +105,15 @@ pipeline {
         stage("Terraform Plan") {
             steps {
                 script {
-                    sh "terraform plan -out=tfplan -detailed-exitcode || true"
+                    def planStatus = sh(
+                        script: "terraform plan -out=tfplan -detailed-exitcode",
+                        returnStatus: true
+                    )
+
+                    if (planStatus == 1) {
+                        error("Terraform plan failed")
+                    }
+
                     archiveArtifacts artifacts: 'tfplan', fingerprint: true
                 }
             }
@@ -229,5 +244,4 @@ stage("Verify Infrastructure") {
             )
         }
     }
-}
 }
