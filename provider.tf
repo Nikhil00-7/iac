@@ -12,3 +12,12 @@ terraform {
 provider "aws" {
   region = "us-east-1"
 }
+
+# For Intel Mac (amd64) compatibility
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+    }
+  }
+}
