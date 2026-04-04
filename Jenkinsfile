@@ -194,6 +194,7 @@ stage("Verify Infrastructure") {
                 }
             }
         }
+    }
     post {
         always {
             echo "Cleaning workspace..."
