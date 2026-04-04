@@ -2,7 +2,7 @@ resource "aws_alb" "alb" {
   name            = "my-alb"
   internal        = false
   security_groups = [aws_security_group.alb_sg.id]
-  subnets         = [aws_subnet.public_subnet.id]
+  subnets         = [aws_subnet.public_subnet[*].id]
 
   tags = {
     Name = "my-alb"
