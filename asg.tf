@@ -1,6 +1,10 @@
+data "aws_ssm_parameter" "amzn2_ami" {
+  name = "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+}
+
 resource "aws_launch_template" "asg_launch_template" {
   name_prefix   = "app_launch_template"
-  image_id      = "ami-0c55b159cbfafe1f0"
+  image_id      = data.aws_ssm_parameter.amzn2_ami.value
   instance_type = "t2.micro"
 
 

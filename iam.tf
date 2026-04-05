@@ -1,5 +1,5 @@
 resource "aws_iam_role" "ec2_role" {
-  name = "ec2_role"
+  name = "ec2-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -8,14 +8,15 @@ resource "aws_iam_role" "ec2_role" {
         Principal = {
           Service = "ec2.amazonaws.com"
         }
-        resource = "sts:AssumeRole"
+         Action = "sts:AssumeRole"
       }
+      
     ]
   })
 }
 
 resource "aws_iam_policy" "ecr_policy" {
-  name = "ecr_policy"
+  name = "ecr-policy"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

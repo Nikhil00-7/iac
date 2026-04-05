@@ -40,6 +40,7 @@ resource "aws_route_table" "public_route_table" {
 }
 
 resource "aws_route_table" "private_route_table" {
+  count = 2
   vpc_id = aws_vpc.vpc.id
 }
 
@@ -51,7 +52,7 @@ resource "aws_route_table_association" "public_route_table_ass" {
 
 resource "aws_route_table_association" "private_route_table_ass" {
   count = 2
-  route_table_id = aws_route_table.private_route_table.id
+  route_table_id = aws_route_table.private_route_table[count.index].id
   subnet_id      = aws_subnet.private_subnet[count.index].id
 }
 
@@ -70,18 +71,20 @@ resource "aws_route" "public_route" {
 }
 
 resource "aws_eip" "eip" {
+  count  = 2
   domain = "vpc"
 }
 
 resource "aws_nat_gateway" "nat_gw" {
   count = 2
+
   subnet_id     = aws_subnet.public_subnet[count.index].id
-  allocation_id = aws_eip.eip.id
+  allocation_id = aws_eip.eip[count.index].id
 }
 
 resource "aws_route" "private_route" {
   count = 2
-  route_table_id         = aws_route_table.private_route_table.id
+  route_table_id         = aws_route_table.private_route_table[count.index].id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.nat_gw[count.index].id
 }

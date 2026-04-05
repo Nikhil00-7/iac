@@ -36,7 +36,9 @@ pipeline {
                         'vpc.tf',
                         'iam.tf',
                         'security.tf',
-                        'user_data.sh'
+                        'user_data.sh',
+                        'rds.tf',
+                        's3.tf'
                     ]
                     requiredFiles.each { file ->
                         if (!fileExists(file)) {
